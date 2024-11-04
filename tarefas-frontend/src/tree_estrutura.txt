@@ -1,0 +1,16 @@
+﻿C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\components\AddTarefa.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\components\TarefaEditForm.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\components\TarefaForm.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\components\TarefasList.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\store\actions\tarefasActions.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\store\reducers\index.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\store\reducers\rootReducer.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\store\reducers\tarefasReducer.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\store\sagas\index.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\store\sagas\tarefasSaga.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\store\store.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\App.css
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\App.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\index.css
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\index.js
+C:\Users\rodri\OneDrive\Documentos\INICIO\tarefas\tarefas\tarefas-frontend\src\reportWebVitals.js

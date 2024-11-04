@@ -1,0 +1,50 @@
+/* src/App.css */
+
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #282c34;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden; /* Garante que o header acompanhe o conteúdo */
+  min-height: 70px; /* Define uma altura mínima para o header */
+}
+
+.App-header h1 {
+  font-size: calc(1.5rem + 1vw); /* Ajuste dinâmico do tamanho da fonte */
+  margin: 0;
+  text-align: center;
+  white-space: normal; /* Permite quebra de linha */
+  word-wrap: break-word; /* Garante quebra de palavras longas */
+}
+
+/* Estilo para o conteúdo principal */
+.main-content {
+  padding: 20px;
+  margin-top: 20px; /* Espaço entre header e main-content */
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Ajuste responsivo para telas menores */
+@media (max-width: 768px) {
+  .App-header {
+    padding: 30px 0;
+  }
+
+  .App-header h1 {
+    font-size: 1.8rem; /* Limita o tamanho da fonte em telas pequenas */
+  }
+
+  .main-content {
+    margin-top: 30px; /* Espaço extra para evitar sobreposição em telas pequenas */
+  }
+}

@@ -1,0 +1,1144 @@
+﻿// src/main/java/com/example/tarefas/config/CorsConfig.java
+
+package com.example.tarefas.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(@NonNull CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins("http://localhost:3000") // Permite a origem do frontend
+                .allowedMethods("*")
+                .allowedHeaders("*");
+    }
+}
+// src/main/java/com/example/tarefas/config/WebConfig.java
+
+package com.example.tarefas.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
+import org.springframework.web.servlet.config.annotation.*;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:uploads/");
+    }
+}
+// src/main/java/com/example/tarefas/controller/TarefaController.java
+
+package com.example.tarefas.controller;
+
+import com.example.tarefas.model.Tarefa;
+import com.example.tarefas.repository.TarefaRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.*;
+
+@CrossOrigin(origins = "http://localhost:3000")
+@RestController
+@RequestMapping("/api/tarefas")
+public class TarefaController {
+
+    @Autowired
+    private TarefaRepository tarefaRepository;
+
+    // MÃ©todo para obter todas as tarefas
+    @GetMapping
+    public ResponseEntity<Iterable<Tarefa>> getAllTarefas() {
+        Iterable<Tarefa> tarefas = tarefaRepository.findAll();
+        return ResponseEntity.ok(tarefas);
+    }
+
+    // MÃ©todo para criar uma nova tarefa
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+public ResponseEntity<Tarefa> criarTarefa(
+        @RequestParam("titulo") String titulo,
+        @RequestParam("descricao") String descricao,
+        @RequestParam(value = "concluida", required = false) Boolean concluida,
+        @RequestPart(name = "foto", required = false) MultipartFile foto) {
+    try {
+        Tarefa tarefa = new Tarefa();
+        tarefa.setTitulo(titulo);
+        tarefa.setDescricao(descricao);
+        tarefa.setConcluida(concluida != null ? concluida : false); // Define o status de concluÃ­da
+
+        if (foto != null && !foto.isEmpty()) {
+            String originalFilename = foto.getOriginalFilename();
+            if (originalFilename != null && !originalFilename.isEmpty()) {
+                String filename = StringUtils.cleanPath(originalFilename);
+                Path uploadPath = Paths.get("uploads/");
+                if (!Files.exists(uploadPath)) {
+                    Files.createDirectories(uploadPath);
+                }
+                Path filePath = uploadPath.resolve(filename);
+                Files.copy(foto.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+                tarefa.setFotoUrl("/uploads/" + filename);
+            }
+        }
+
+        Tarefa tarefaSalva = tarefaRepository.save(tarefa);
+        return ResponseEntity.status(HttpStatus.CREATED).body(tarefaSalva);
+    } catch (IOException e) {
+        e.printStackTrace();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+}
+
+    // MÃ©todo para atualizar uma tarefa existente
+    @PutMapping("/{id}")
+public ResponseEntity<?> atualizarTarefa(
+        @PathVariable Long id,
+        @RequestParam("titulo") String titulo,
+        @RequestParam("descricao") String descricao,
+        @RequestParam(value = "concluida", required = false) Boolean concluida,
+        @RequestPart(name = "foto", required = false) MultipartFile foto) {
+    return tarefaRepository.findById(id)
+            .map(tarefa -> {
+                tarefa.setTitulo(titulo);
+                tarefa.setDescricao(descricao);
+                if (concluida != null) {
+                    tarefa.setConcluida(concluida);
+                }
+
+                if (foto != null && !foto.isEmpty()) {
+                    String originalFilename = foto.getOriginalFilename();
+                    if (originalFilename != null && !originalFilename.isEmpty()) {
+                        String filename = StringUtils.cleanPath(originalFilename);
+                        Path uploadPath = Paths.get("uploads/");
+                        try {
+                            if (!Files.exists(uploadPath)) {
+                                Files.createDirectories(uploadPath);
+                            }
+                            Path filePath = uploadPath.resolve(filename);
+                            Files.copy(foto.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+                            tarefa.setFotoUrl("/uploads/" + filename);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao salvar a foto");
+                        }
+                    }
+                }
+
+                Tarefa tarefaAtualizada = tarefaRepository.save(tarefa);
+                return ResponseEntity.ok(tarefaAtualizada);
+            })
+            .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tarefa nÃ£o encontrada"));
+    }
+
+    // MÃ©todo para deletar uma tarefa
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletarTarefa(@PathVariable Long id) {
+        if (tarefaRepository.existsById(id)) {
+            tarefaRepository.deleteById(id);
+            return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+}
+// src/main/java/com/example/tarefas/model/Tarefa.java
+
+package com.example.tarefas.model;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Tarefa {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String titulo;
+
+    private String descricao;
+
+    private boolean concluida;
+
+    private String fotoUrl;
+
+    // Construtor padrÃ£o
+    public Tarefa() {
+    }
+
+    // Construtor com parÃ¢metros
+    public Tarefa(String titulo, String descricao, boolean concluida, String fotoUrl) {
+        this.titulo = titulo;
+        this.descricao = descricao;
+        this.concluida = concluida;
+        this.fotoUrl = fotoUrl;
+    }
+
+    // Getters e Setters
+
+    public Long getId() {
+        return id;
+    }
+
+    // O setter para id nÃ£o Ã© necessÃ¡rio, pois Ã© gerado automaticamente
+
+    public String getTitulo() {
+        return titulo;
+    }
+
+    public void setTitulo(String titulo) {
+        this.titulo = titulo;
+    }
+
+    public String getDescricao() {
+        return descricao;
+    }
+
+    public void setDescricao(String descricao) {
+        this.descricao = descricao;
+    }
+
+    public boolean isConcluida() {
+        return concluida;
+    }
+
+    public void setConcluida(boolean concluida) {
+        this.concluida = concluida;
+    }
+
+    public String getFotoUrl() {
+        return fotoUrl;
+    }
+
+    public void setFotoUrl(String fotoUrl) {
+        this.fotoUrl = fotoUrl;
+    }
+}
+// src/main/java/com/example/tarefas/repository/TarefaRepository.java
+
+package com.example.tarefas.repository;
+
+import com.example.tarefas.model.Tarefa;
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface TarefaRepository extends CrudRepository<Tarefa, Long> {
+    // MÃ©todos adicionais, se necessÃ¡rio
+}
+// src/main/java/com/example/tarefas/TarefasApplication.java
+package com.example.tarefas;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class TarefasApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(TarefasApplication.class, args);
+    }
+
+}
+// src/test/java/com/example/tarefas/TarefasApplicationTests.java
+
+package com.example.tarefas;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class TarefasApplicationTests {
+
+    @Test
+    void contextLoads() {
+    }
+}
+{
+  "name": "tarefas-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@reduxjs/toolkit": "^1.9.5",
+    "axios": "^1.7.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-redux": "^8.1.3",
+    "react-scripts": "5.0.1",
+    "redux": "^4.2.1",
+    "redux-saga": "^1.3.0",
+    "tarefas-frontend": "file:"
+  },
+  "scripts": {
+    "start": "react-scripts start"
+  }
+}
+<!-- pom.xml -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>tarefas</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>tarefas</name>
+    <description>Gerenciador de Tarefas</description>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.1.4</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+
+    <dependencies>
+        <!-- Spring Boot Starter Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Starter Data JPA -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- MySQL Connector -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Commons FileUpload -->
+        <dependency>
+            <groupId>commons-fileupload</groupId>
+            <artifactId>commons-fileupload</artifactId>
+            <version>1.5</version>
+        </dependency>
+
+        <!-- Jakarta Persistence API -->
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+
+        <!-- Spring Boot Starter Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Lombok (opcional) -->
+        <!--
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.26</version>
+            <scope>provided</scope>
+        </dependency>
+        -->
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Plugin do Maven para o Spring Boot -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Plugin do Maven Compiler -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.10.1</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
+
+
+
+
+
+// src/components/AddTarefa.js
+
+import React from 'react';
+import { useDispatch } from 'react-redux';
+import { addTarefa } from '../store/actions/tarefasActions';
+import TarefaForm from './TarefaForm';
+
+function AddTarefa() {
+  const dispatch = useDispatch();
+
+  const handleAddTarefa = (tarefaData) => {
+    dispatch(addTarefa(tarefaData));
+  };
+
+  return <TarefaForm onSubmit={handleAddTarefa} />;
+}
+
+export default AddTarefa;
+// src/components/TarefaEditForm.js
+
+import React, { useState } from 'react';
+import { Modal, Form, Input, Button, Upload } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
+
+function TarefaEditForm({ visible, onCancel, onEdit, tarefa }) {
+  const [form] = Form.useForm();
+  const [fileList, setFileList] = useState([]);
+
+  const handleFinish = (values) => {
+    onEdit({ ...tarefa, ...values, foto: fileList[0]?.originFileObj });
+    form.resetFields();
+    setFileList([]);
+  };
+
+  const handleChange = ({ fileList }) => {
+    setFileList(fileList);
+  };
+
+  return (
+    <Modal
+      open={visible}
+      title="Editar Tarefa"
+      onCancel={onCancel}
+      footer={null}
+    >
+      <Form form={form} onFinish={handleFinish} initialValues={tarefa}>
+        <Form.Item
+          name="titulo"
+          rules={[{ required: true, message: 'Por favor, insira o tÃ­tulo' }]}
+        >
+          <Input placeholder="TÃ­tulo" />
+        </Form.Item>
+        <Form.Item
+          name="descricao"
+          rules={[{ required: true, message: 'Por favor, insira a descriÃ§Ã£o' }]}
+        >
+          <Input.TextArea placeholder="DescriÃ§Ã£o" />
+        </Form.Item>
+        <Form.Item>
+          <Upload
+            name="foto"
+            listType="picture"
+            fileList={fileList}
+            onChange={handleChange}
+            beforeUpload={() => false}
+          >
+            <Button icon={<UploadOutlined />}>Alterar Foto</Button>
+          </Upload>
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit">
+            Salvar AlteraÃ§Ãµes
+          </Button>
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+}
+
+export default TarefaEditForm;
+// src/components/TarefaForm.js
+
+import React, { useState } from 'react';
+import { Form, Input, Button, Upload, Select } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
+
+const { Option } = Select;
+
+function TarefaForm({ onSubmit }) {
+  const [form] = Form.useForm();
+  const [fileList, setFileList] = useState([]);
+  const [status, setStatus] = useState('Pendente'); // Valor padrÃ£o para status
+
+  const handleFinish = (values) => {
+    onSubmit({
+      ...values,
+      foto: fileList[0]?.originFileObj,
+      concluida: status === 'Finalizada', // Define concluÃ­da com base no valor do dropdown
+    });
+    form.resetFields();
+    setFileList([]);
+    setStatus('Pendente');
+  };
+
+  const handleChange = ({ fileList }) => {
+    setFileList(fileList);
+  };
+
+  return (
+    <Form form={form} onFinish={handleFinish} layout="vertical">
+      <Form.Item
+        name="titulo"
+        label="TÃ­tulo"
+        required
+        rules={[{ required: true, message: 'Por favor, insira o tÃ­tulo' }]}
+      >
+        <Input placeholder="TÃ­tulo" />
+      </Form.Item>
+      <Form.Item
+        name="descricao"
+        label="DescriÃ§Ã£o"
+        required
+        rules={[{ required: true, message: 'Por favor, insira a descriÃ§Ã£o' }]}
+      >
+        <Input.TextArea placeholder="DescriÃ§Ã£o" />
+      </Form.Item>
+      <Form.Item label="Foto">
+        <Upload
+          name="foto"
+          listType="picture"
+          fileList={fileList}
+          onChange={handleChange}
+          beforeUpload={() => false}
+        >
+          <Button icon={<UploadOutlined />}>Anexar Foto</Button>
+        </Upload>
+      </Form.Item>
+      <Form.Item label="Status" required>
+        <Select
+          value={status}
+          onChange={(value) => setStatus(value)}
+          style={{ width: 120 }}
+        >
+          <Option value="Pendente">Pendente</Option>
+          <Option value="Finalizada">Finalizada</Option>
+        </Select>
+      </Form.Item>
+      <Form.Item>
+        <Button type="primary" htmlType="submit">
+          Adicionar Tarefa
+        </Button>
+      </Form.Item>
+    </Form>
+  );
+}
+
+export default TarefaForm;
+// src/components/TarefasList.js
+
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchTarefas,
+  deleteTarefa,
+  updateTarefa,
+} from '../store/actions/tarefasActions';
+import { Table, Button, Typography, Image, Modal } from 'antd';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  EyeOutlined,
+  CheckOutlined,
+} from '@ant-design/icons';
+import TarefaEditForm from './TarefaEditForm';
+
+const { Text } = Typography;
+
+function TarefasList() {
+  const dispatch = useDispatch();
+  const { tarefas, loading, error } = useSelector((state) => state);
+
+  const [editingTarefa, setEditingTarefa] = useState(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+
+  useEffect(() => {
+    dispatch(fetchTarefas());
+  }, [dispatch]);
+
+  const handleDelete = (id) => {
+    dispatch(deleteTarefa(id));
+  };
+
+  const handleEdit = (tarefa) => {
+    setEditingTarefa(tarefa);
+    setIsModalVisible(true);
+  };
+
+  const handleEditSubmit = (updatedTarefa) => {
+    dispatch(updateTarefa(updatedTarefa));
+    setIsModalVisible(false);
+    setEditingTarefa(null);
+  };
+
+  const handleCancelEdit = () => {
+    setIsModalVisible(false);
+    setEditingTarefa(null);
+  };
+
+  const handleImagePreview = (fotoUrl) => {
+    setImagePreview(`https://protected-gorge-65520-26115e348254.herokuapp.com${fotoUrl}`);
+  };
+
+  const handleImagePreviewClose = () => {
+    setImagePreview(null);
+  };
+
+  const handleConcluir = (tarefa) => {
+    dispatch(updateTarefa({ ...tarefa, concluida: true }));
+  };
+
+  const columns = [
+    {
+      title: 'Tarefas',
+      dataIndex: 'titulo',
+      key: 'titulo',
+      render: (text, tarefa) => (
+        <>
+          <Text delete={tarefa.concluida} strong>
+            {text}
+          </Text>
+          <br />
+          <Text type="secondary">{tarefa.descricao}</Text>
+        </>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_, tarefa) => (
+        <span>{tarefa.concluida ? 'Finalizado' : 'Pendente'}</span>
+      ),
+    },
+    {
+      title: 'AÃ§Ãµes',
+      key: 'acoes',
+      render: (_, tarefa) => (
+        <>
+          {tarefa.fotoUrl && (
+            <Button
+              icon={<EyeOutlined />}
+              onClick={() => handleImagePreview(tarefa.fotoUrl)}
+            >
+              Ver Foto
+            </Button>
+          )}
+          <Button
+            icon={<CheckOutlined />}
+            onClick={() => handleConcluir(tarefa)}
+            style={{
+              backgroundColor: tarefa.concluida ? '#d9d9d9' : '#1890ff',
+              color: tarefa.concluida ? 'grey' : 'white',
+              cursor: tarefa.concluida ? 'not-allowed' : 'pointer',
+              borderColor: tarefa.concluida ? '#d9d9d9' : '#1890ff',
+              width: 100,
+            }}
+            disabled={tarefa.concluida}
+          >
+            {tarefa.concluida ? 'ConcluÃ­do' : 'Concluir'}
+          </Button>
+          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(tarefa)}
+          >
+            Editar
+          </Button>
+          <Button
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(tarefa.id)}
+            style={{
+              backgroundColor: '#e6f7ff',
+              color: '#1890ff',
+              borderColor: '#91d5ff',
+            }}
+          >
+            Deletar
+          </Button>
+        </>
+      ),
+    },
+  ];
+
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
+
+  if (error) {
+    return <div>Erro: {error}</div>;
+  }
+
+  return (
+    <>
+      <Table
+        dataSource={tarefas}
+        columns={columns}
+        rowKey="id"
+        pagination={false}
+      />
+
+      {editingTarefa && (
+        <TarefaEditForm
+          visible={isModalVisible}
+          onCancel={handleCancelEdit}
+          onEdit={handleEditSubmit}
+          tarefa={editingTarefa}
+        />
+      )}
+
+      {imagePreview && (
+        <Modal
+          visible={true}
+          footer={null}
+          onCancel={handleImagePreviewClose}
+        >
+          <Image src={imagePreview} alt="Foto da Tarefa" />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+export default TarefasList;
+// src/store/actions/tarefasActions.js
+
+// Tipos de aÃ§Ã£o
+export const FETCH_TAREFAS_REQUEST = 'FETCH_TAREFAS_REQUEST';
+export const FETCH_TAREFAS_SUCCESS = 'FETCH_TAREFAS_SUCCESS';
+export const FETCH_TAREFAS_FAILURE = 'FETCH_TAREFAS_FAILURE';
+
+export const ADD_TAREFA_REQUEST = 'ADD_TAREFA_REQUEST';
+export const ADD_TAREFA_SUCCESS = 'ADD_TAREFA_SUCCESS';
+export const ADD_TAREFA_FAILURE = 'ADD_TAREFA_FAILURE';
+
+export const DELETE_TAREFA_REQUEST = 'DELETE_TAREFA_REQUEST';
+export const DELETE_TAREFA_SUCCESS = 'DELETE_TAREFA_SUCCESS';
+export const DELETE_TAREFA_FAILURE = 'DELETE_TAREFA_FAILURE';
+
+export const UPDATE_TAREFA_REQUEST = 'UPDATE_TAREFA_REQUEST';
+export const UPDATE_TAREFA_SUCCESS = 'UPDATE_TAREFA_SUCCESS';
+export const UPDATE_TAREFA_FAILURE = 'UPDATE_TAREFA_FAILURE';
+
+// AÃ§Ãµes para buscar tarefas
+export const fetchTarefas = () => ({
+  type: FETCH_TAREFAS_REQUEST,
+});
+
+export const fetchTarefasSuccess = (tarefas) => ({
+  type: FETCH_TAREFAS_SUCCESS,
+  payload: tarefas,
+});
+
+export const fetchTarefasFailure = (error) => ({
+  type: FETCH_TAREFAS_FAILURE,
+  payload: error,
+});
+
+// AÃ§Ãµes para adicionar tarefa
+export const addTarefa = (tarefaData) => ({
+  type: ADD_TAREFA_REQUEST,
+  payload: tarefaData,
+});
+
+export const addTarefaSuccess = (tarefa) => ({
+  type: ADD_TAREFA_SUCCESS,
+  payload: tarefa,
+});
+
+export const addTarefaFailure = (error) => ({
+  type: ADD_TAREFA_FAILURE,
+  payload: error,
+});
+
+// AÃ§Ãµes para deletar tarefa
+export const deleteTarefa = (id) => ({
+  type: DELETE_TAREFA_REQUEST,
+  payload: id,
+});
+
+export const deleteTarefaSuccess = (id) => ({
+  type: DELETE_TAREFA_SUCCESS,
+  payload: id,
+});
+
+export const deleteTarefaFailure = (error) => ({
+  type: DELETE_TAREFA_FAILURE,
+  payload: error,
+});
+
+// AÃ§Ãµes para atualizar tarefa
+export const updateTarefa = (tarefaData) => ({
+  type: UPDATE_TAREFA_REQUEST,
+  payload: tarefaData,
+});
+
+export const updateTarefaSuccess = (tarefa) => ({
+  type: UPDATE_TAREFA_SUCCESS,
+  payload: tarefa,
+});
+
+export const updateTarefaFailure = (error) => ({
+  type: UPDATE_TAREFA_FAILURE,
+  payload: error,
+});
+// src/store/reducers/index.js
+import { combineReducers } from 'redux';
+import tarefasReducer from './tarefasReducer';
+
+const rootReducer = combineReducers({
+  tarefasState: tarefasReducer,
+});
+
+export default rootReducer;
+// src/store/reducers/rootReducer.js
+
+import { combineReducers } from 'redux';
+import tarefasReducer from './tarefasReducer';
+
+const rootReducer = combineReducers({
+  tarefas: tarefasReducer,
+  // Add other reducers here if necessary
+});
+
+export default rootReducer;
+// src/store/reducers/tarefasReducer.js
+
+import {
+  FETCH_TAREFAS_REQUEST,
+  FETCH_TAREFAS_SUCCESS,
+  FETCH_TAREFAS_FAILURE,
+  ADD_TAREFA_REQUEST,
+  ADD_TAREFA_SUCCESS,
+  ADD_TAREFA_FAILURE,
+  DELETE_TAREFA_REQUEST,
+  DELETE_TAREFA_SUCCESS,
+  DELETE_TAREFA_FAILURE,
+  UPDATE_TAREFA_REQUEST,
+  UPDATE_TAREFA_SUCCESS,
+  UPDATE_TAREFA_FAILURE,
+} from '../actions/tarefasActions';
+
+const initialState = {
+  tarefas: [],
+  loading: false,
+  error: null,
+};
+
+const tarefasReducer = (state = initialState, action) => {
+  switch (action.type) {
+    case FETCH_TAREFAS_REQUEST:
+    case ADD_TAREFA_REQUEST:
+    case DELETE_TAREFA_REQUEST:
+    case UPDATE_TAREFA_REQUEST:
+      return {
+        ...state,
+        loading: true,
+        error: null,
+      };
+    case FETCH_TAREFAS_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        tarefas: action.payload,
+      };
+    case ADD_TAREFA_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        tarefas: [...state.tarefas, action.payload],
+      };
+    case DELETE_TAREFA_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        tarefas: state.tarefas.filter((tarefa) => tarefa.id !== action.payload),
+      };
+    case UPDATE_TAREFA_SUCCESS:
+      return {
+        ...state,
+        loading: false,
+        tarefas: state.tarefas.map((tarefa) =>
+          tarefa.id === action.payload.id ? action.payload : tarefa
+        ),
+      };
+    case FETCH_TAREFAS_FAILURE:
+    case ADD_TAREFA_FAILURE:
+    case DELETE_TAREFA_FAILURE:
+    case UPDATE_TAREFA_FAILURE:
+      return {
+        ...state,
+        loading: false,
+        error: action.payload,
+      };
+    default:
+      return state;
+  }
+};
+
+export default tarefasReducer;
+// src/store/sagas/index.js
+import { all } from 'redux-saga/effects';
+import tarefasSaga from './tarefasSaga';
+
+export default function* rootSaga() {
+  yield all([
+    tarefasSaga(),
+    // Include other sagas here if you add more in the future
+  ]);
+}
+// src/store/sagas/tarefasSaga.js
+
+import { call, put, takeLatest } from 'redux-saga/effects';
+import axios from 'axios';
+import {
+  FETCH_TAREFAS_REQUEST,
+  fetchTarefasSuccess,
+  fetchTarefasFailure,
+  ADD_TAREFA_REQUEST,
+  addTarefaSuccess,
+  addTarefaFailure,
+  DELETE_TAREFA_REQUEST,
+  deleteTarefaSuccess,
+  deleteTarefaFailure,
+  UPDATE_TAREFA_REQUEST,
+  updateTarefaSuccess,
+  updateTarefaFailure,
+} from '../actions/tarefasActions';
+
+// Saga para buscar tarefas
+function* fetchTarefasSaga() {
+  try {
+    const response = yield call(axios.get, 'https://protected-gorge-65520-26115e348254.herokuapp.com/api/tarefas');
+    yield put(fetchTarefasSuccess(response.data));
+  } catch (error) {
+    yield put(fetchTarefasFailure(error.message));
+    console.error('Erro ao buscar tarefas', error);
+  }
+}
+
+// Saga para adicionar tarefa
+function* addTarefaSaga(action) {
+  try {
+    const { titulo, descricao, foto, concluida } = action.payload;
+    const formData = new FormData();
+    formData.append('titulo', titulo);
+    formData.append('descricao', descricao);
+    formData.append('concluida', concluida);
+    if (foto) {
+      formData.append('foto', foto);
+    }
+
+    const response = yield call(
+      axios.post,
+      'https://protected-gorge-65520-26115e348254.herokuapp.com/api/tarefas',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    yield put(addTarefaSuccess(response.data));
+  } catch (error) {
+    yield put(addTarefaFailure(error.message));
+    console.error('Erro ao adicionar tarefa', error);
+  }
+}
+
+// Saga para deletar tarefa
+function* deleteTarefaSaga(action) {
+  try {
+    yield call(
+      axios.delete,
+      `https://protected-gorge-65520-26115e348254.herokuapp.com/api/tarefas/${action.payload}`
+    );
+    yield put(deleteTarefaSuccess(action.payload));
+  } catch (error) {
+    yield put(deleteTarefaFailure(error.message));
+    console.error('Erro ao deletar tarefa', error);
+  }
+}
+
+// Saga para atualizar tarefa
+function* updateTarefaSaga(action) {
+  try {
+    const { id, titulo, descricao, foto, concluida } = action.payload;
+    const formData = new FormData();
+    formData.append('titulo', titulo);
+    formData.append('descricao', descricao);
+    formData.append('concluida', concluida);
+    if (foto) {
+      formData.append('foto', foto);
+    }
+
+    const response = yield call(
+      axios.put,
+      `https://protected-gorge-65520-26115e348254.herokuapp.com/api/tarefas/${id}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    yield put(updateTarefaSuccess(response.data));
+  } catch (error) {
+    yield put(updateTarefaFailure(error.message));
+    console.error('Erro ao atualizar tarefa', error);
+  }
+}
+
+// Saga principal que agrupa todos os outros Sagas
+export default function* tarefasSaga() {
+  yield takeLatest(FETCH_TAREFAS_REQUEST, fetchTarefasSaga);
+  yield takeLatest(ADD_TAREFA_REQUEST, addTarefaSaga);
+  yield takeLatest(DELETE_TAREFA_REQUEST, deleteTarefaSaga);
+  yield takeLatest(UPDATE_TAREFA_REQUEST, updateTarefaSaga);
+}
+// src/store/store.js
+
+import { createStore, applyMiddleware } from 'redux';
+import createSagaMiddleware from 'redux-saga';
+import tarefasReducer from './reducers/tarefasReducer';
+import tarefasSaga from './sagas/tarefasSaga';
+
+// Cria o middleware do Redux Saga
+const sagaMiddleware = createSagaMiddleware();
+
+// Cria a store com o reducer e o middleware
+const store = createStore(tarefasReducer, applyMiddleware(sagaMiddleware));
+
+// Executa o Saga principal
+sagaMiddleware.run(tarefasSaga);
+
+export default store;
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+// src/App.js
+
+import React from 'react';
+import { Layout, Typography } from 'antd';
+import AddTarefa from './components/AddTarefa';
+import TarefasList from './components/TarefasList';
+
+const { Header, Content } = Layout;
+const { Title } = Typography;
+
+function App() {
+  return (
+    <Layout>
+      <Header>
+        <Title style={{ color: 'white', margin: '14px 0' }}>Gerenciador de Tarefas</Title>
+      </Header>
+      <Content style={{ padding: '20px' }}>
+        <AddTarefa />
+        <TarefasList />
+      </Content>
+    </Layout>
+  );
+}
+
+export default App;
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+// src/index.js
+
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { Provider } from 'react-redux';
+import store from './store/store';
+import App from './App';
+
+const container = document.getElementById('root');
+const root = createRoot(container);
+
+root.render(
+  <Provider store={store}>
+    <App />
+  </Provider>
+);
+const reportWebVitals = onPerfEntry => {
+  if (onPerfEntry && onPerfEntry instanceof Function) {
+    import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+      getCLS(onPerfEntry);
+      getFID(onPerfEntry);
+      getFCP(onPerfEntry);
+      getLCP(onPerfEntry);
+      getTTFB(onPerfEntry);
+    });
+  }
+};
+
+export default reportWebVitals;
