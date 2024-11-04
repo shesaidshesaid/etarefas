@@ -108,29 +108,37 @@ public class TarefaController {
         }
     }
 
-    @GetMapping("/fotos/{filename}")
-    public ResponseEntity<Resource> getFoto(
-            @PathVariable String filename,
-            @RequestParam(value = "fotoSenha", required = false) String fotoSenha) {
-        try {
-            Path filePath = Paths.get("uploads/").resolve(filename).normalize();
-            Resource resource = new UrlResource(filePath.toUri());
+    // src/main/java/com/example/tarefas/controller/TarefaController.java
 
-            Optional<Tarefa> optionalTarefa = tarefaRepository.findByFotoUrl("/uploads/" + filename);
-            if (optionalTarefa.isPresent()) {
-                Tarefa tarefa = optionalTarefa.get();
-                if (tarefa.getFotoSenha() != null) {
-                    if (fotoSenha == null || !passwordEncoder.matches(fotoSenha, tarefa.getFotoSenha())) {
-                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-                    }
+@GetMapping("/uploads/{filename}")
+public ResponseEntity<Resource> getFoto(
+        @PathVariable String filename,
+        @RequestParam(value = "fotoSenha", required = false) String fotoSenha) {
+    try {
+        Path filePath = Paths.get("uploads/").resolve(filename).normalize();
+        Resource resource = new UrlResource(filePath.toUri());
+
+        Optional<Tarefa> optionalTarefa = tarefaRepository.findByFotoUrl("/uploads/" + filename);
+        if (optionalTarefa.isPresent()) {
+            Tarefa tarefa = optionalTarefa.get();
+            
+            // Verifique se a tarefa possui uma senha e valide-a
+            if (tarefa.getFotoSenha() != null) {
+                if (fotoSenha == null || !passwordEncoder.matches(fotoSenha, tarefa.getFotoSenha())) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                         .body(null); // Retorna 401 caso a senha esteja incorreta ou ausente
                 }
             }
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(Files.probeContentType(filePath)))
-                    .body(resource);
-        } catch (IOException e) {
-            return ResponseEntity.notFound().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // Retorna 404 se a tarefa não for encontrada
         }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(Files.probeContentType(filePath)))
+                .body(resource);
+    } catch (IOException e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
+}
+
 }
