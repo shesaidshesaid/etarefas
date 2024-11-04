@@ -1,7 +1,0 @@
-﻿C:\Users\rodri\OneDrive\Documentos\backup do projeto\3005 toppp\INICIO\tarefas\tarefas-frontend\src\store\actions\tarefasActions.js
-C:\Users\rodri\OneDrive\Documentos\backup do projeto\3005 toppp\INICIO\tarefas\tarefas-frontend\src\store\reducers\index.js
-C:\Users\rodri\OneDrive\Documentos\backup do projeto\3005 toppp\INICIO\tarefas\tarefas-frontend\src\store\reducers\rootReducer.js
-C:\Users\rodri\OneDrive\Documentos\backup do projeto\3005 toppp\INICIO\tarefas\tarefas-frontend\src\store\reducers\tarefasReducer.js
-C:\Users\rodri\OneDrive\Documentos\backup do projeto\3005 toppp\INICIO\tarefas\tarefas-frontend\src\store\sagas\index.js
-C:\Users\rodri\OneDrive\Documentos\backup do projeto\3005 toppp\INICIO\tarefas\tarefas-frontend\src\store\sagas\tarefasSaga.js
-C:\Users\rodri\OneDrive\Documentos\backup do projeto\3005 toppp\INICIO\tarefas\tarefas-frontend\src\store\store.js

@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.Optional;
 
-@CrossOrigin(origins = "http://localhost:3000")
 @RestController
 @RequestMapping("/api/tarefas")
 public class TarefaController {
@@ -28,14 +27,40 @@ public class TarefaController {
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
-    // Método para obter todas as tarefas
     @GetMapping
     public ResponseEntity<Iterable<Tarefa>> getAllTarefas() {
         Iterable<Tarefa> tarefas = tarefaRepository.findAll();
         return ResponseEntity.ok(tarefas);
     }
 
-    // Método para criar uma nova tarefa
+    private ResponseEntity<Tarefa> salvarOuAtualizarTarefa(Tarefa tarefa, MultipartFile foto, String fotoSenha) {
+        try {
+            if (foto != null && !foto.isEmpty()) {
+                String originalFilename = foto.getOriginalFilename();
+                if (originalFilename != null) { // Verifica se o nome do arquivo não é nulo
+                    String filename = StringUtils.cleanPath(originalFilename);
+                    Path uploadPath = Paths.get("uploads/");
+                    if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
+    
+                    Path filePath = uploadPath.resolve(filename);
+                    Files.copy(foto.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+                    tarefa.setFotoUrl("/uploads/" + filename);
+                }
+            }
+    
+            if (fotoSenha != null && !fotoSenha.isEmpty()) {
+                tarefa.setFotoSenha(passwordEncoder.encode(fotoSenha));
+            }
+    
+            Tarefa tarefaSalva = tarefaRepository.save(tarefa);
+            return ResponseEntity.status(HttpStatus.CREATED).body(tarefaSalva);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+
+    
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Tarefa> criarTarefa(
             @RequestParam("titulo") String titulo,
@@ -43,87 +68,36 @@ public class TarefaController {
             @RequestParam(value = "concluida", required = false) Boolean concluida,
             @RequestPart(name = "foto", required = false) MultipartFile foto,
             @RequestParam(value = "fotoSenha", required = false) String fotoSenha) {
-        try {
-            Tarefa tarefa = new Tarefa();
-            tarefa.setTitulo(titulo);
-            tarefa.setDescricao(descricao);
-            tarefa.setConcluida(concluida != null ? concluida : false);
 
-            if (foto != null && !foto.isEmpty()) {
-                String originalFilename = foto.getOriginalFilename();
-                if (originalFilename != null && !originalFilename.isEmpty()) {
-                    String filename = StringUtils.cleanPath(originalFilename);
-                    Path uploadPath = Paths.get("uploads/");
-                    if (!Files.exists(uploadPath)) {
-                        Files.createDirectories(uploadPath);
-                    }
-                    Path filePath = uploadPath.resolve(filename);
-                    Files.copy(foto.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-                    tarefa.setFotoUrl("/uploads/" + filename);
-                }
-            }
-
-            if (fotoSenha != null && !fotoSenha.isEmpty()) {
-                String hashedSenha = passwordEncoder.encode(fotoSenha);
-                tarefa.setFotoSenha(hashedSenha);
-            }
-
-            Tarefa tarefaSalva = tarefaRepository.save(tarefa);
-            return ResponseEntity.status(HttpStatus.CREATED).body(tarefaSalva);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        Tarefa tarefa = new Tarefa();
+        tarefa.setTitulo(titulo);
+        tarefa.setDescricao(descricao);
+        tarefa.setConcluida(concluida != null ? concluida : false);
+        return salvarOuAtualizarTarefa(tarefa, foto, fotoSenha);
     }
 
-    // Método para atualizar uma tarefa existente
     @PutMapping("/{id}")
-    public ResponseEntity<?> atualizarTarefa(
+    public ResponseEntity<Tarefa> atualizarTarefa(
             @PathVariable Long id,
             @RequestParam("titulo") String titulo,
             @RequestParam("descricao") String descricao,
             @RequestParam(value = "concluida", required = false) Boolean concluida,
             @RequestPart(name = "foto", required = false) MultipartFile foto,
             @RequestParam(value = "fotoSenha", required = false) String fotoSenha) {
-        return tarefaRepository.findById(id)
-                .map(tarefa -> {
-                    tarefa.setTitulo(titulo);
-                    tarefa.setDescricao(descricao);
-                    if (concluida != null) {
-                        tarefa.setConcluida(concluida);
-                    }
+        
+        Optional<Tarefa> tarefaExistente = tarefaRepository.findById(id);
+        
+        if (!tarefaExistente.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
 
-                    if (foto != null && !foto.isEmpty()) {
-                        String originalFilename = foto.getOriginalFilename();
-                        if (originalFilename != null && !originalFilename.isEmpty()) {
-                            String filename = StringUtils.cleanPath(originalFilename);
-                            Path uploadPath = Paths.get("uploads/");
-                            try {
-                                if (!Files.exists(uploadPath)) {
-                                    Files.createDirectories(uploadPath);
-                                }
-                                Path filePath = uploadPath.resolve(filename);
-                                Files.copy(foto.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-                                tarefa.setFotoUrl("/uploads/" + filename);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao salvar a foto");
-                            }
-                        }
-                    }
-
-                    if (fotoSenha != null && !fotoSenha.isEmpty()) {
-                        String hashedSenha = passwordEncoder.encode(fotoSenha);
-                        tarefa.setFotoSenha(hashedSenha);
-                    }
-
-                    Tarefa tarefaAtualizada = tarefaRepository.save(tarefa);
-                    return ResponseEntity.ok(tarefaAtualizada);
-                })
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Tarefa não encontrada"));
+        Tarefa tarefa = tarefaExistente.get();
+        tarefa.setTitulo(titulo);
+        tarefa.setDescricao(descricao);
+        tarefa.setConcluida(concluida != null ? concluida : tarefa.isConcluida());
+        return salvarOuAtualizarTarefa(tarefa, foto, fotoSenha);
     }
 
-    // Método para deletar uma tarefa
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletarTarefa(@PathVariable Long id) {
         if (tarefaRepository.existsById(id)) {
@@ -134,7 +108,6 @@ public class TarefaController {
         }
     }
 
-    // Endpoint para servir fotos protegidas
     @GetMapping("/fotos/{filename}")
     public ResponseEntity<Resource> getFoto(
             @PathVariable String filename,

@@ -1,10 +1,9 @@
-// src/main/java/com/example/tarefas/config/WebConfig.java
-
 package com.example.tarefas.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
-import org.springframework.web.servlet.config.annotation.*;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
