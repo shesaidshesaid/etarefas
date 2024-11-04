@@ -1,27 +1,21 @@
+// src/components/TarefaForm.js
+
 import React, { useState } from 'react';
 import { Form, Input, Button, Upload, Select } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 
-const { Option } = Select;
-
 function TarefaForm({ onSubmit }) {
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState([]);
-  const [status, setStatus] = useState('Pendente');
 
   const handleFinish = (values) => {
     onSubmit({
       ...values,
       foto: fileList[0]?.originFileObj,
-      concluida: status === 'Finalizada',
+      concluida: values.status === 'Finalizada',
     });
     form.resetFields();
     setFileList([]);
-    setStatus('Pendente');
-  };
-
-  const handleChange = ({ fileList }) => {
-    setFileList(fileList);
   };
 
   return (
@@ -47,7 +41,7 @@ function TarefaForm({ onSubmit }) {
           name="foto"
           listType="picture"
           fileList={fileList}
-          onChange={handleChange}
+          onChange={({ fileList }) => setFileList(fileList)}
           beforeUpload={() => false}
         >
           <Button icon={<UploadOutlined />}>Anexar Foto</Button>
@@ -56,14 +50,10 @@ function TarefaForm({ onSubmit }) {
       <Form.Item label="Senha da Foto" name="fotoSenha">
         <Input.Password placeholder="Senha para proteger a foto (opcional)" />
       </Form.Item>
-      <Form.Item label="Status" required>
-        <Select
-          value={status}
-          onChange={(value) => setStatus(value)}
-          style={{ width: 120 }}
-        >
-          <Option value="Pendente">Pendente</Option>
-          <Option value="Finalizada">Finalizada</Option>
+      <Form.Item label="Status" name="status" required>
+        <Select>
+          <Select.Option value="Pendente">Pendente</Select.Option>
+          <Select.Option value="Finalizada">Finalizada</Select.Option>
         </Select>
       </Form.Item>
       <Form.Item>

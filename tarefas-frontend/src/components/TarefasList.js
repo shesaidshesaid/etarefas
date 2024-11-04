@@ -63,14 +63,15 @@ function TarefasList() {
             onChange={(e) => setFotoSenhaInput(e.target.value)}
           />
         ),
-        onOk: () => {
-          fetchFotoComSenha(tarefa.fotoUrl, fotoSenhaInput);
-        },
+        onOk: () => fetchFotoComSenha(tarefa.fotoUrl, fotoSenhaInput),
       });
     } else {
       setImagePreview(`https://etarefas-c64f7fa2b10d.herokuapp.com${tarefa.fotoUrl}`);
     }
   };
+  
+
+
 
   const fetchFotoComSenha = (fotoUrl, fotoSenha) => {
     axios
