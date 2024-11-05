@@ -6,7 +6,7 @@ Bem-vindo ao **eTarefas**, uma aplicação web para gerenciamento de tarefas que
 
 Você pode acessar a aplicação hospedada no Heroku através do seguinte link:
 
-[eTarefas - Aplicação Demo](https://protected-gorge-65520-26115e348254.herokuapp.com/)
+[eTarefas - Aplicação Demo](https://etarefas-c64f7fa2b10d.herokuapp.com)
 
 ## Sumário
 
