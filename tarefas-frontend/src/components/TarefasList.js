@@ -1,6 +1,6 @@
 // src/components/TarefasList.js
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchTarefas,
@@ -27,7 +27,8 @@ function TarefasList() {
   const [editingTarefa, setEditingTarefa] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
-  const [fotoSenhaInput, setFotoSenhaInput] = useState(''); // Inicialize aqui
+  const [fotoSenhaInput, setFotoSenhaInput] = useState('');
+  const senhaInputRef = useRef(null); // referência ao input de senha
 
   useEffect(() => {
     dispatch(fetchTarefas());
@@ -55,38 +56,42 @@ function TarefasList() {
 
   const handleImagePreview = (tarefa) => {
     if (tarefa.fotoSenha) {
-      Modal.confirm({
-        title: 'Esta foto é protegida por senha.',
-        content: (
-          <Input.Password
-            placeholder="Digite a senha"
-            onChange={(e) => setFotoSenhaInput(e.target.value)}
-          />
-        ),
-        onOk: () => fetchFotoComSenha(tarefa.fotoUrl, fotoSenhaInput),
-      });
+        Modal.confirm({
+            title: 'Esta foto é protegida por senha.',
+            content: (
+                <Input.Password
+                    placeholder="Digite a senha"
+                    onChange={(e) => setFotoSenhaInput(e.target.value)}
+                />
+            ),
+            onOk: () => {
+                if (fotoSenhaInput) {
+                    fetchFotoComSenha(tarefa.fotoUrl, fotoSenhaInput);
+                } else {
+                    Modal.error({ title: 'Senha é necessária para visualizar a foto.' });
+                }
+            },
+        });
     } else {
-      setImagePreview(`https://etarefas-c64f7fa2b10d.herokuapp.com${tarefa.fotoUrl}`);
+        setImagePreview(`https://etarefas-c64f7fa2b10d.herokuapp.com${tarefa.fotoUrl}`);
     }
-  };
-  
+};
 
-
-
-  const fetchFotoComSenha = (fotoUrl, fotoSenha) => {
+const fetchFotoComSenha = (fotoUrl, fotoSenha) => {
     axios
-      .get(`https://etarefas-c64f7fa2b10d.herokuapp.com${fotoUrl}`, {
-        params: { fotoSenha },
-        responseType: 'blob',
-      })
-      .then((response) => {
-        const imageUrl = URL.createObjectURL(response.data);
-        setImagePreview(imageUrl);
-      })
-      .catch((error) => {
-        Modal.error({ title: 'Senha incorreta ou erro ao carregar a foto.' });
-      });
-  };
+        .get(`https://etarefas-c64f7fa2b10d.herokuapp.com${fotoUrl}`, {
+            params: { fotoSenha },
+            responseType: 'blob',
+        })
+        .then((response) => {
+            const imageUrl = URL.createObjectURL(response.data);
+            setImagePreview(imageUrl);
+        })
+        .catch((error) => {
+            Modal.error({ title: 'Senha incorreta ou erro ao carregar a foto.' });
+        });
+};
+
 
   const handleImagePreviewClose = () => {
     setImagePreview(null);
